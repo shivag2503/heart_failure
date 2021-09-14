@@ -108,6 +108,7 @@ scaled <- function(df, cols) {
 }
 
 scaled_data <- scaled(clean_data, cols_scale)
+saveRDS(scaled, 'scale_fun.RDS')
 ```
 
 Rearrange data 
