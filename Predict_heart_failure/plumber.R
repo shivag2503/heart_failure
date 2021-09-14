@@ -1,9 +1,10 @@
 library(plumber)
+library(dplyr)
 
-model_predict <- readRDS('D:/heart_failure/model.RDS')
-scaler <- readRDS("D:/heart_failure/scale_fun.RDS")
+model_predict <- readRDS('model.RDS')
+scaler <- readRDS("scale_fun.RDS")
 
-raw_data <- read.csv(file = "D:/heart_failure/heart_failure_clinical_records_dataset.csv", header = T)
+raw_data <- read.csv(file = "heart_failure_clinical_records_dataset.csv", header = T)
 
 raw_data$age <- as.integer(raw_data$age)
 
