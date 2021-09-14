@@ -1,0 +1,249 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Importing Libraries
+
+```{r}
+library(dplyr)
+library(janitor)
+library(gensvm)
+library(ROSE)
+```
+
+Load data
+
+```{r}
+raw_data <- read.csv(file = "heart_failure_clinical_records_dataset.csv", header = T)
+```
+
+View data
+
+```{r}
+raw_data %>%
+  head()
+```
+
+Description of data
+
+```{r}
+raw_data %>%
+  glimpse()
+```
+
+Lets check the number of unique values of some of the features
+
+```{r}
+# anaemia
+unique(raw_data$anaemia)
+
+# diabetes
+unique(raw_data$diabetes)
+
+# high_blood_pressure
+unique(raw_data$high_blood_pressure)
+
+# sex
+unique(raw_data$sex)
+
+# smoking
+unique(raw_data$smoking)
+```
+
+Since all above contains 0 and 1, all are factors. Let's covert the data type.
+
+```{r}
+factors_cols <- c("anaemia", 'diabetes', "high_blood_pressure", "sex", "smoking")
+
+raw_data[, factors_cols] <- lapply(raw_data[, factors_cols], factor)
+raw_data$age <- as.integer(raw_data$age)
+
+glimpse(raw_data)
+```
+
+Check for missing values
+
+```{r}
+raw_data %>%
+  select(everything()) %>%
+  summarise_all(funs(sum(is.na(.)))) %>%
+  t()
+```
+
+Check DEATH_VALUE proportion
+
+```{r}
+table(raw_data$DEATH_EVENT)
+```
+
+```{r}
+sum(raw_data$DEATH_EVENT)/299
+```
+
+
+We will create two models
+1. With whole data
+2. Balance data
+
+```{r}
+clean_data <- raw_data
+```
+
+Standardizing data
+
+```{r}
+cols_scale <- c("age", "creatinine_phosphokinase", "ejection_fraction", "platelets", "serum_creatinine", "serum_sodium", "time" )
+```
+
+```{r}
+scaled <- function(df, cols) {
+  new_df <- df %>%
+    select(-cols)
+  for (i in 1:length(cols)) {
+    x <- scale(df[cols[i]])
+    new_df <- cbind(new_df, x)
+  }
+  return(new_df)
+}
+
+scaled_data <- scaled(clean_data, cols_scale)
+```
+
+Rearrange data 
+
+```{r}
+colnames(scaled_data)
+```
+
+```{r}
+col_names <- c("age", "anaemia", "creatinine_phosphokinase", "diabetes", "ejection_fraction", "high_blood_pressure", "platelets",
+               "serum_creatinine", "serum_sodium", "sex", "smoking", "time", "DEATH_EVENT")
+
+scaled_data <- scaled_data[, col_names]
+```
+
+Split data
+
+```{r}
+split_data <- gensvm.train.test.split(x = scaled_data, train.size = 0.80, shuffle = T, random.state = 20)
+```
+
+```{r}
+train <- data.frame(split_data$x.train)
+test <- data.frame(split_data$x.test)
+```
+
+```{r}
+dim(train)
+dim(test)
+```
+
+```{r}
+model <- glm(DEATH_EVENT ~ . , data = train, family = binomial)
+summary(model)
+```
+
+```{r}
+predicted_train <- predict(model, train[, -c(13)])
+predicted_train <- ifelse(predicted_train > 0.5, 1, 0)
+table(predicted_train, train$DEATH_EVENT)
+```
+
+```{r}
+error <- mean(predicted_train != train$DEATH_EVENT)
+print(paste0("Accuracy, ", 1-error))
+```
+
+```{r}
+coeff <- data.frame(coefficient = model$coefficients[-1])
+coeff <- cbind(features = colnames(train)[-13], coeff)
+row.names(coeff) <- NULL
+coeff
+```
+
+```{r}
+intercpt <- model$coefficients[1][[1]]
+row_intercept <- c("intercept", intercpt)
+coeff <- rbind(row_intercept, coeff)
+coeff
+```
+
+```{r}
+options(scipen = 999)
+coeff["odds_ratio"] <- exp(as.numeric(coeff$coefficient))
+coeff
+```
+
+```{r}
+coeff[order(-coeff$odds_ratio), ]
+```
+
+If coefficient is around 0 and its odds ratio is around 1 -> feature is not useful
+
+```{r}
+predicted_test <- predict(model, test[, -c(13)])
+predicted_test <- ifelse(predicted_test > 0.5, 1, 0)
+table(predicted_test, test$DEATH_EVENT)
+```
+
+```{r}
+error <- mean(predicted_test != test$DEATH_EVENT)
+print(paste0("Accuracy of model for test data is, ", 1-error))
+```
+
+Model 2
+
+```{r}
+balanced_data <- ovun.sample(DEATH_EVENT ~ .,  data = scaled_data, method = "under", N = 192, seed = 1)$data
+table(balanced_data$DEATH_EVENT)
+```
+
+Split data
+
+```{r}
+split_data2 <- gensvm.train.test.split(x = balanced_data, train.size = 0.80, shuffle = T, random.state = 20)
+```
+
+```{r}
+train2 <- data.frame(split_data2$x.train)
+test2 <- data.frame(split_data2$x.test)
+```
+
+```{r}
+dim(train2)
+dim(test2)
+```
+
+```{r}
+model2 <- glm(DEATH_EVENT ~ . , data = train2, family = binomial)
+summary(model)
+```
+
+```{r}
+predicted_train <- predict(model, train2[, -c(13)])
+predicted_train <- ifelse(predicted_train > 0.5, 1, 0)
+table(predicted_train, train2$DEATH_EVENT)
+```
+
+```{r}
+error <- mean(predicted_train != train2$DEATH_EVENT)
+print(paste0("Accuracy, ", 1-error))
+```
+
+```{r}
+predicted_test <- predict(model, test2[, -c(13)])
+predicted_test <- ifelse(predicted_test > 0.5, 1, 0)
+table(predicted_test, test2$DEATH_EVENT)
+```
+
+```{r}
+error <- mean(predicted_test != test2$DEATH_EVENT)
+print(paste0("Accuracy of model for test data is, ", 1-error))
+```
+
+
+```{r}
+saveRDS(model, "model.RDS")
+```
+
