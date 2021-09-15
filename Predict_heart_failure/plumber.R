@@ -13,6 +13,12 @@ descriptive <- c("age", "creatinine_phosphokinase", "ejection_fraction", "platel
 means <- summarise_all(raw_data[, descriptive], mean)
 sds <- summarise_all(raw_data[, descriptive], sd)
 
+#* @filter cors
+cors <- function(res) {
+  res$setHeader("Access-Control-Allow-Origin", "*") # Or whatever
+  plumber::forward()
+}
+
 #* @get /predictions
 predict_death_event <- function(age, cp, ef, p, sc, ss, t, s, g, d, hbp, a) {
   age <- (as.numeric(age) - means[1]) / sds[1]
@@ -31,7 +37,7 @@ predict_death_event <- function(age, cp, ef, p, sc, ss, t, s, g, d, hbp, a) {
   prediction_data <- data.frame(age, anaemia =  a, creatinine_phosphokinase = cp, diabetes = d, ejection_fraction = ef, high_blood_pressure = hbp,
                                 platelets = p, serum_creatinine = sc, serum_sodium = ss, sex = g, smoking = s, time = t)
   
-  prediction <- predict(model, prediction_data, type = "response")
+  prediction <- predict(model_predict, prediction_data, type = "response")
   if(prediction > 0.5) {
     return("Your chances are high for heart failure")
   } else {

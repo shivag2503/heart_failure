@@ -5,9 +5,9 @@ account: shivamagrawal1166171
 server: beta.rstudioconnect.com
 hostUrl: https://beta.rstudioconnect.com/__api__
 appId: 16919
-bundleId: 65032
+bundleId: 65053
 url: https://beta.rstudioconnect.com/content/bad31afc-9ec4-45fe-9579-9c7690d8470a/
-when: 1631618519.04663
-lastSyncTime: 1631618519.04663
+when: 1631696467.94581
+lastSyncTime: 1631696467.94581
 asMultiple: FALSE
 asStatic: FALSE
